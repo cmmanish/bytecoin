@@ -8,22 +8,24 @@
 
 import Foundation
 
+protocol CoinManagerDelegate {
+    func didUpdatePrice(price: String, currency: String)
+    func didFailWithError(error: Error)
+}
+
 struct CoinManager {
     
-    let baseURL = "https://rest.coinapi.io/v1/exchangerate/BTC/"
+    //Create an optional delegate that will have to implement the delegate methods.
+    //Which we can notify when we have updated the price.
+    var delegate: CoinManagerDelegate?
+    
+    let baseURL = "https://rest.coinapi.io/v1/exchangerate/BTC"
     let apiKey = "A04F890E-8B41-4305-94CF-A745977DD5E7"
     
     let currencyArray = ["AUD", "BRL","CAD","CNY","EUR","GBP","HKD","IDR","ILS","INR","JPY","MXN","NOK","NZD","PLN","RON","RUB","SEK","SGD","USD","ZAR"]
     
     func getCointPrice(for currency: String) {
-        
         let urlString = "\(baseURL)/\(currency)?apikey=\(apiKey)"
-        performRequest(with: urlString)
-        
-    }
-    
-    func performRequest(with urlString: String){
-        
         if let url = URL(string: urlString) {
             
             let session = URLSession(configuration: .default)
@@ -33,8 +35,15 @@ struct CoinManager {
                     return
                 }
                 if let safeData = data {
-                    let bitcoinPrice = self.parseJSON(safeData)
-                    print(bitcoinPrice)
+                    if let bitcoinPrice = self.parseJSON(safeData) {
+                        //Optional: round the price down to 2 decimal places.
+                        let priceString = String(format: "%.2f", bitcoinPrice)
+                        
+                        //Call the delegate method in the delegate (ViewController) and
+                        //pass along the necessary data.
+                        self.delegate?.didUpdatePrice(price: priceString, currency: currency)
+                    }
+                    
                 }
             }
             task.resume()
@@ -42,26 +51,20 @@ struct CoinManager {
     }
     
     func parseJSON(_ data: Data) -> Double? {
-        
         //Create a JSONDecoder
         let decoder = JSONDecoder()
         do {
-            
             //try to decode the data using the CoinData structure
             let decodedData = try decoder.decode(CoinData.self, from: data)
             
             //Get the last property from the decoded data.
             let lastPrice = decodedData.rate
-            print(lastPrice)
+            print("lastPrice: \(lastPrice)")
             return lastPrice
-            
         } catch {
-            
             //Catch and print any errors.
             print(error)
             return nil
         }
     }
-    
-    
 }
